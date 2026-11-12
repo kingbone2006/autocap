@@ -1,127 +1,130 @@
+Language: **English** | [Tiếng Việt](README_VI.md)
+
 # AutoCap Google Slides
 
-Tiện ích mở rộng trình duyệt (Chrome Extension - Manifest V3) giúp tự động chụp màn hình toàn bộ các trang Google Slides (bao gồm cả phần ghi chú phía dưới nếu cần), tùy chỉnh tốc độ theo giây, đóng gói thành file `.zip` trùng tên với bài trình bày và tải trực tiếp về máy tính.
+A Chrome Extension (Manifest V3) that automatically captures Google Slides directly from your browser tab (including speaker notes below the slide if desired), supports custom per-slide speed in seconds, packages all captures into a `.zip` archive named after the presentation title, and downloads it directly to your computer.
 
 ---
 
-## Tính năng chính
+## Key Features
 
-1. **Chụp đúng nội dung hiển thị trên trình duyệt (khắc phục lỗi ảnh đen)**
-   - Chụp trực tiếp khung hình thực tế từ tab đang mở, giữ nguyên đầy đủ hình ảnh, phông chữ, biểu đồ và định dạng gốc.
-   - Hoạt động bình thường ngay cả với các bài trình bày bị giới hạn quyền tải xuống (Chế độ Chỉ xem / View-only).
-   - Tự động ẩn bảng điều khiển AutoCap trong khoảnh khắc chụp để không che mất nội dung slide hoặc ghi chú.
+1. **Captures Actual Browser Rendering (Fixes Black Screen & Missing Images)**
+   - Captures the real pixels rendered on the active browser tab, preserving embedded images, fonts, diagrams, and layout fidelity.
+   - Works reliably even on presentations where downloading/exporting is restricted (View-only mode).
+   - Automatically hides the AutoCap floating control panel during each snapshot so it never obscures the slide or speaker notes.
 
-2. **Tùy chọn vùng chụp linh hoạt**
-   - **Slide + Phần ghi chú phía dưới (Mặc định)**: Tự động lấy vùng trình bày kèm khung ghi chú (Speaker Notes) ở bên dưới, loại bỏ thanh menu trên và danh sách slide thu nhỏ bên trái.
-   - **Toàn màn hình trình duyệt đang xem**: Chụp toàn bộ khung hiển thị hiện tại của tab.
-   - **Chỉ khung Slide**: Chỉ cắt riêng khung trang chiếu, bỏ phần ghi chú.
+2. **Flexible Capture Area Options**
+   - **Slide + Speaker Notes Below (Default)**: Captures the main slide workspace together with the speaker notes pane underneath, cropping out the top toolbar and left-hand slide filmstrip.
+   - **Full Browser Viewport**: Captures the entire visible area of the current tab as displayed.
+   - **Slide Only**: Crops strictly to the slide frame without speaker notes.
 
-3. **Tùy chỉnh tốc độ chụp theo số giây và chế độ Siêu Tốc Stream**
-   - Cho phép tự nhập số giây chờ mỗi trang (từ `0.05` giây trở lên) hoặc chọn nhanh các mức `0.15s`, `0.3s`, `0.5s`, `0.8s`, `1.5s`.
-   - **Chụp Trực Tiếp Tab**: Chạy tự động chỉ với 1 lần bấm, tự xử lý giới hạn tốc độ của Chrome (~2 trang/giây) mà không bị ngắt lỗi.
-   - **Siêu Tốc Stream**: Lấy khung hình trực tiếp từ luồng video của tab thông qua Offscreen Document, vượt qua giới hạn tốc độ của `captureVisibleTab` khi cần chụp ở mức `0.1s` - `0.4s` mỗi trang.
-   - **Xuất Vector PDF**: Kết xuất nhanh từ PDF gốc (chỉ áp dụng khi slide cho phép xuất và không lấy phần ghi chú).
+3. **Custom Capture Speed (in Seconds) & High-Speed Stream Mode**
+   - Enter any custom delay in seconds per slide (down to `0.05` seconds) or click quick presets (`0.15s`, `0.3s`, `0.5s`, `0.8s`, `1.5s`).
+   - **Direct Tab Capture**: Runs automatically with one click and handles Chrome's `captureVisibleTab` rate limit (~2 captures/sec) gracefully with automatic backoff and retry.
+   - **Turbo Stream Mode**: Grabs frames directly from a live tab `MediaStream` via an Offscreen Document, bypassing Chrome's `captureVisibleTab` quota limit for rapid `0.1s` - `0.4s` per-slide capture.
+   - **Vector PDF Export**: Fast batch rendering from the source PDF when export is permitted (captures slides only, without speaker notes).
 
-4. **Tạm dừng và tải ZIP những ảnh đã chụp được**
-   - Trong quá trình chụp, có thể bấm **Tạm dừng** bất kỳ lúc nào.
-   - Khi đang tạm dừng (hoặc nếu hủy/gặp sự cố giữa chừng), nút **Tải ZIP đã chụp** sẽ xuất hiện để nén và tải ngay toàn bộ các trang đã chụp được từ đầu đến thời điểm hiện tại. Sau khi tải xong vẫn có thể bấm **Tiếp tục** để chụp phần còn lại.
+4. **Pause & Download Captured Slides as ZIP Anytime**
+   - Pause the capture process at any moment.
+   - While paused (or if cancelled/interrupted partway through), a **Download Captured ZIP** button appears so you can immediately package and download every slide captured up to that point without losing progress, then resume or cancel afterward.
 
-5. **Đặt tên ảnh và file ZIP chuẩn xác**
-   - Tên file `.zip` được lấy trực tiếp từ tiêu đề bài trình bày Google Slides (ví dụ: `SEMESTER_4_SWR302.zip`), khắc phục triệt để lỗi Chrome tự đặt tên theo mã UUID của Blob URL.
-   - Hỗ trợ nhiều kiểu đánh số ảnh: `001.png`, `1.png`, `Slide_001.png`, `Trang_001.png` với định dạng `PNG` hoặc `JPEG`.
-   - Hỗ trợ điều hướng danh sách slide ảo hóa (virtual filmstrip) cho các bài trình bày lớn trên 500 trang.
+5. **Accurate Image & Archive Naming**
+   - Automatically names the `.zip` archive after the Google Slides presentation title (for example, `SEMESTER_4_SWR302.zip`), preventing Chrome's default UUID naming for Blob URL downloads.
+   - Supports multiple filename patterns (`001.png`, `1.png`, `Slide_001.png`, `Trang_001.png`) in either `PNG` or `JPEG` format.
+   - Supports virtualized filmstrip scrolling for large presentations with 500+ slides.
 
 ---
 
-## Hướng dẫn cài đặt
+## Installation
 
-### Cách 1: Cài đặt từ bản phát hành (Khuyên dùng)
+### Option 1: Install from GitHub Releases (Recommended)
 
-1. Truy cập trang [Releases](https://github.com/kingbone2006/autocap/releases) của repository.
-2. Tại phiên bản mới nhất, tải về file cài đặt `AutoCap-Google-Slides-v2.0.0.zip`.
-3. Giải nén file `.zip` vừa tải ra một thư mục riêng trên máy tính (ví dụ `C:\Extensions\AutoCap`). Lưu ý giữ nguyên thư mục này, không xóa sau khi cài.
-4. Mở trình duyệt Chrome (hoặc Edge, Cốc Cốc, Brave) và truy cập địa chỉ:
+1. Open the [Releases](https://github.com/kingbone2006/autocap/releases) page of this repository.
+2. Under the latest release, download `AutoCap-Google-Slides-v2.0.0.zip`.
+3. Extract the `.zip` file to a dedicated folder on your computer (for example, `C:\Extensions\AutoCap`). Keep this folder in place after installation.
+4. Open Chrome (or Edge, Brave, Opera, Coc Coc) and navigate to:
    ```text
    chrome://extensions/
    ```
-5. Bật công tắc **Chế độ dành cho nhà phát triển** (Developer mode) ở góc trên bên phải.
-6. Bấm nút **Tải tiện ích đã giải nén** (Load unpacked) ở góc trên bên trái.
-7. Chọn thư mục vừa giải nén ở Bước 3 (thư mục chứa file `manifest.json`) rồi bấm **Select Folder**.
-8. Ghim biểu tượng tiện ích lên thanh công cụ Chrome nếu muốn thao tác nhanh từ popup.
+5. Enable **Developer mode** using the toggle in the top-right corner.
+6. Click **Load unpacked** in the top-left corner.
+7. Select the extracted folder containing `manifest.json` and click **Select Folder**.
+8. Optionally pin the extension icon to your browser toolbar for quick popup access.
 
-### Cách 2: Cài đặt từ mã nguồn (Source Code)
+### Option 2: Install from Source Code
 
-1. Clone hoặc tải Source Code từ repository:
+1. Clone or download the repository:
    ```bash
    git clone https://github.com/kingbone2006/autocap.git
    ```
-2. Vào `chrome://extensions/`, bật **Chế độ dành cho nhà phát triển** (Developer mode).
-3. Bấm **Tải tiện ích đã giải nén** (Load unpacked) và chọn thư mục `autocap` vừa tải về.
-
-
----
-
-## Hướng dẫn sử dụng
-
-1. Mở bài trình bày Google Slides cần chụp trên trình duyệt Chrome. Nếu bạn cần chụp cả phần ghi chú, hãy đảm bảo khung ghi chú phía dưới đang được mở và hiển thị đúng tỷ lệ mong muốn.
-2. Ở góc dưới bên phải trang Google Slides, bấm vào nút **Chụp Slide** (hoặc bấm biểu tượng tiện ích trên thanh công cụ Chrome).
-3. Thiết lập các tùy chọn trong bảng điều khiển:
-   - **Tổng slide / Phạm vi chụp**: Kiểm tra tổng số trang (hoặc bấm **Quét lại**). Có thể chụp toàn bộ, từ trang hiện tại, 10 trang mẫu, hoặc nhập số trang bắt đầu - kết thúc tùy ý.
-   - **Cơ chế chụp**:
-     - Chọn **Chụp Trực Tiếp Tab** để chạy hoàn toàn tự động.
-     - Chọn **Siêu Tốc Stream** nếu muốn tốc độ dưới `0.5s/trang` (trình duyệt có thể hiện hộp thoại chọn tab cần chia sẻ ở lần đầu, hãy chọn đúng tab Google Slides hiện tại).
-   - **Vùng chụp màn hình**: Chọn **Slide + Phần ghi chú phía dưới**, **Toàn màn hình trình duyệt đang xem**, hoặc **Chỉ khung Slide**.
-   - **Tốc độ chụp mỗi slide**: Nhập số giây mong muốn (ví dụ `0.25`, `0.35`, `0.5`, `1.0`) hoặc bấm các nút chọn nhanh.
-   - **Tên ảnh & Định dạng**: Chọn quy tắc đánh số file ảnh và định dạng `PNG` hoặc `JPEG`.
-   - **Tự ẩn bảng AutoCap lúc chụp**: Giữ nguyên trạng thái bật để bảng điều khiển tự ẩn đi trong lúc lấy khung hình.
-4. Bấm **Bắt đầu Chụp Slide & Tải ZIP**.
-5. Theo dõi tiến trình:
-   - Giữ tab Google Slides ở trạng thái hiển thị trong suốt quá trình chụp.
-   - Nếu cần dừng giữa chừng, bấm **Tạm dừng** -> bấm **Tải ZIP đã chụp** để lưu ngay các trang đã chụp được dưới dạng file `.zip`.
-   - Khi hoàn tất, file `.zip` mang tên bài trình bày sẽ tự động được tải về thư mục Downloads.
+2. Open `chrome://extensions/` and enable **Developer mode**.
+3. Click **Load unpacked** and select the cloned `autocap` folder.
 
 ---
 
-## Cấu trúc dự án
+## Usage Guide
+
+1. Open the target Google Slides presentation in Chrome. If you want to capture speaker notes as well, make sure the speaker notes pane at the bottom is expanded and sized as desired.
+2. In the bottom-right corner of the Google Slides window, click the **Chụp Slide** floating button (or click the extension icon in your Chrome toolbar).
+3. Configure your capture settings in the panel:
+   - **Total Slides / Capture Range**: Verify the detected slide count (or click **Quét lại** / Rescan). Capture the entire deck, start from the current slide, capture a 10-slide sample, or specify any custom start and end page numbers.
+   - **Capture Engine**:
+     - Select **Chụp Trực Tiếp Tab** (Direct Tab Capture) for automatic one-click capture.
+     - Select **Siêu Tốc Stream** (Turbo Stream) for capture intervals faster than `0.5s` per slide (if Chrome prompts for tab sharing permission on the first run, pick the current Google Slides tab).
+   - **Capture Area**: Choose **Slide + Phần ghi chú phía dưới** (Slide + Notes Below), **Toàn màn hình trình duyệt đang xem** (Full Browser Tab), or **Chỉ khung Slide** (Slide Only).
+   - **Speed per Slide (seconds)**: Enter any delay in seconds (such as `0.25`, `0.35`, `0.5`, `1.0`) or select one of the quick preset buttons.
+   - **Filename & Image Format**: Choose your preferred numbering pattern and image format (`PNG` or `JPEG`).
+   - **Auto-hide Panel While Capturing**: Keep this enabled so the AutoCap panel temporarily hides during each frame capture.
+4. Click **Bắt đầu Chụp Slide & Tải ZIP**.
+5. Monitor progress:
+   - Keep the Google Slides tab visible and active while capturing.
+   - If you want to stop partway through, click **Tạm dừng** (Pause) and then **Tải ZIP đã chụp** (Download Captured ZIP) to save all slides captured so far into a `.zip` file.
+   - Once complete, the `.zip` file named after your presentation automatically saves to your Downloads folder.
+
+---
+
+## Project Structure
 
 ```text
 autocap/
-├── manifest.json            # Cấu hình Chrome Extension (Manifest V3)
-├── background.js            # Service Worker: chụp tab, quản lý Offscreen stream và tên file tải về
-├── content.js               # Content Script: giao diện nổi, điều hướng slide và nén ZIP
-├── content.css              # Giao diện cho bảng điều khiển nổi
-├── offscreen.html           # Trang Offscreen ẩn phục vụ chế độ Siêu Tốc Stream
-├── offscreen.js             # Xử lý đọc frame từ MediaStream ở tốc độ cao
+├── manifest.json            # Chrome Extension configuration (Manifest V3)
+├── background.js            # Service Worker: tab capture, Offscreen stream, download filename enforcement
+├── content.js               # Content Script: floating UI, virtualized filmstrip navigation, ZIP packaging
+├── content.css              # Floating widget styles
+├── offscreen.html           # Hidden Offscreen document for Turbo Stream capture
+├── offscreen.js             # High-speed frame grabber from tab MediaStream
 ├── popup/
-│   ├── popup.html           # Giao diện popup trên thanh công cụ Chrome
-│   ├── popup.css            # CSS cho popup
-│   └── popup.js             # Logic điều khiển từ popup
+│   ├── popup.html           # Toolbar popup UI
+│   ├── popup.css            # Toolbar popup styles
+│   └── popup.js             # Toolbar popup controller
 ├── lib/
-│   ├── jszip.min.js         # Thư viện nén ZIP trực tiếp trên trình duyệt
-│   ├── pdf.min.js           # Thư viện đọc PDF (cho chế độ Xuất Vector PDF)
-│   └── pdf.worker.min.js    # Worker xử lý PDF
-├── icons/                   # Bộ biểu tượng tiện ích (16x16, 48x48, 128x128)
-├── bookmarklet.js           # Script hỗ trợ chạy nhanh qua DevTools Console
-├── HUONG_DAN_SU_DUNG.html   # Trang hướng dẫn ngoại tuyến
-└── README.md                # Tài liệu hướng dẫn cài đặt và sử dụng
+│   ├── jszip.min.js         # Client-side ZIP archive builder
+│   ├── pdf.min.js           # PDF parser (for Vector PDF Export mode)
+│   └── pdf.worker.min.js    # PDF background worker
+├── icons/                   # Extension icons (16x16, 48x48, 128x128)
+├── bookmarklet.js           # Standalone DevTools Console helper script
+├── HUONG_DAN_SU_DUNG.html   # Offline HTML guide (Vietnamese)
+├── README.md                # Documentation (English)
+└── README_VI.md             # Documentation (Vietnamese)
 ```
 
 ---
 
-## Quyền truy cập và bảo mật
+## Permissions & Privacy
 
-Tiện ích xử lý toàn bộ hình ảnh và quá trình nén `.zip` cục bộ ngay trên trình duyệt của bạn, không gửi dữ liệu hay ảnh chụp ra máy chủ bên ngoài.
+All screenshot processing and `.zip` archive generation run 100% locally in your browser. No slides, notes, or images are ever uploaded to external servers.
 
-- `activeTab`, `tabs`: Đọc thông tin tab Google Slides hiện tại và chụp khung hình hiển thị của tab.
-- `desktopCapture`, `tabCapture`, `offscreen`: Hỗ trợ lấy khung hình liên tục ở tốc độ cao trong chế độ Siêu Tốc Stream.
-- `downloads`: Lưu file `.zip` về máy với đúng tên bài trình bày.
-- `scripting`: Hỗ trợ giao tiếp và thực thi trên trang Google Slides.
+- `activeTab`, `tabs`: Inspect the active Google Slides tab and capture its rendered viewport.
+- `desktopCapture`, `tabCapture`, `offscreen`: Capture continuous frames at high speed in Turbo Stream mode.
+- `downloads`: Save the generated `.zip` archive directly with the presentation's actual title.
+- `scripting`: Communicate and operate on Google Slides pages.
 
 ---
 
-## Lưu ý khi sử dụng
+## Notes & Tips
 
-- Khi dùng chế độ **Chụp Trực Tiếp Tab** hoặc **Siêu Tốc Stream**, không thu nhỏ hoặc chuyển sang cửa sổ/tab khác để trình duyệt luôn render đúng slide và ghi chú.
-- Nếu đặt số giây quá nhỏ (ví dụ `0.05s` - `0.15s`) với các slide có nhiều ảnh nặng, hãy tăng lên `0.3s` - `0.6s` nếu thấy ảnh chụp chưa kịp tải hết nội dung trang mới.
-- Sau khi cập nhật phiên bản mới, hãy vào `chrome://extensions/` bấm biểu tượng **Tải lại** (Reload) ở thẻ tiện ích và tải lại tab Google Slides đang mở (`F5`).
+- While using **Direct Tab Capture** or **Turbo Stream**, avoid minimizing the browser window or switching away to another tab so the browser keeps rendering each slide and its notes properly.
+- If you set a very low delay (such as `0.05s` - `0.15s`) on slides with heavy images, increase the delay to `0.3s` - `0.6s` if images have not finished loading before capture.
+- After updating the extension, open `chrome://extensions/`, click **Reload** on the AutoCap card, and refresh (`F5`) any open Google Slides tabs.
+
 
