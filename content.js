@@ -128,26 +128,53 @@
   // Safe Click that works on HTML & SVG Elements
   function safeClick(element) {
     if (!element) return;
-    try {
-      if (typeof element.click === 'function') {
-        element.click();
-      }
-    } catch (e) {
-      // SVGElement might not support .click() directly
+
+    if (window.scrollY !== 0 || window.scrollX !== 0) {
+      window.scrollTo(0, 0);
     }
 
+    try {
+      if (typeof element.focus === 'function') {
+        element.focus();
+      }
+    } catch (e) {}
+
     const rect = element.getBoundingClientRect();
+    const cx = Math.round(rect.left + rect.width / 2);
+    const cy = Math.round(rect.top + rect.height / 2);
     const evtOptions = {
       bubbles: true,
       cancelable: true,
       view: window,
-      clientX: rect.left + rect.width / 2,
-      clientY: rect.top + rect.height / 2
+      clientX: cx,
+      clientY: cy,
+      button: 0,
+      buttons: 1
     };
 
-    element.dispatchEvent(new MouseEvent('mousedown', evtOptions));
-    element.dispatchEvent(new MouseEvent('mouseup', evtOptions));
-    element.dispatchEvent(new MouseEvent('click', evtOptions));
+    let elAtPoint = null;
+    try {
+      elAtPoint = document.elementFromPoint(cx, cy);
+    } catch (e) {}
+
+    const target = elAtPoint || element;
+    try {
+      if (typeof PointerEvent !== 'undefined') {
+        target.dispatchEvent(new PointerEvent('pointerdown', { ...evtOptions, isPrimary: true }));
+        target.dispatchEvent(new PointerEvent('pointerup', { ...evtOptions, isPrimary: true }));
+      }
+      target.dispatchEvent(new MouseEvent('mousedown', evtOptions));
+      target.dispatchEvent(new MouseEvent('mouseup', evtOptions));
+      target.dispatchEvent(new MouseEvent('click', evtOptions));
+    } catch (e) {}
+
+    try {
+      if (typeof target.click === 'function') {
+        target.click();
+      } else if (typeof element.click === 'function') {
+        element.click();
+      }
+    } catch (e) {}
   }
   // Slide DOM and Viewport Detection
   function findSlideOnlyBoundingBox() {
@@ -292,19 +319,21 @@
     return findSlideWithNotesBoundingBox();
   }
 
-// Precision Slide Number Badges Scanner
+  // Precision Slide Number Badges Scanner
   // Finds the leaf elements showing slide numbers (e.g. 495, 496... 501)
   function getSlideNumberElements() {
     const result = [];
-    const maxLeft = 140;
+    const maxLeft = Math.max(180, Math.min(320, window.innerWidth * 0.22));
 
     const allElements = document.querySelectorAll('*');
     for (const el of allElements) {
+      if (el.closest && el.closest('#autocap-container, .autocap-widget, .autocap-chip-btn')) continue;
+
       if (el.children.length === 0 && el.textContent) {
         const text = el.textContent.trim();
         if (/^\d{1,4}$/.test(text)) {
           const rect = el.getBoundingClientRect();
-          if (rect.left >= 0 && rect.left < maxLeft && rect.width > 4 && rect.width < 60 && rect.height > 5 && rect.height < 50) {
+          if (rect.left >= 0 && rect.left < maxLeft && rect.width > 4 && rect.width < 80 && rect.height > 5 && rect.height < 60) {
             const num = parseInt(text, 10);
             if (num >= 1 && num <= 3000) {
               result.push({ el, num, top: rect.top, height: rect.height });
@@ -332,25 +361,29 @@
 
   // Find the true filmstrip scroll container
   function findFilmstripScrollContainer() {
+    const known = document.querySelector(
+      '.punch-filmstrip-scroll-container, .filmstrip-scroller, .docs-filmstrip, [role="tablist"], [aria-label*="filmstrip" i]'
+    );
+    if (known && known.scrollHeight > known.clientHeight + 10) return known;
+
     const items = getSlideNumberElements();
     if (items.length > 0) {
       let p = items[0].el.parentElement;
       while (p && p !== document.body) {
-        if (p.scrollHeight > p.clientHeight + 40 && p.clientHeight > 200) {
+        if (p.scrollHeight > p.clientHeight + 10 && p.clientHeight > 150) {
           return p;
         }
         p = p.parentElement;
       }
     }
 
-    const known = document.querySelector('.punch-filmstrip-scroll-container, .filmstrip-scroller, .docs-filmstrip, [role="tablist"], [aria-label*="filmstrip" i]');
-    if (known && known.scrollHeight > known.clientHeight + 30) return known;
+    if (known) return known;
 
     const allDivs = document.querySelectorAll('div');
     for (const div of allDivs) {
       const r = div.getBoundingClientRect();
-      if (r.left < 80 && r.width >= 80 && r.width <= 340 && r.height > 300) {
-        if (div.scrollHeight > div.clientHeight + 40) {
+      if (r.left < 120 && r.width >= 60 && r.width <= 380 && r.height > 200) {
+        if (div.scrollHeight > div.clientHeight + 10) {
           return div;
         }
       }
@@ -360,10 +393,26 @@
   }
 
   function getThumbnailItemHeight() {
+    // 1. Direct measurement from DOM thumbnails
+    const thumbs = document.querySelectorAll('.punch-filmstrip-thumbnail, [role="option"]');
+    if (thumbs.length >= 2) {
+      const r0 = thumbs[0].getBoundingClientRect();
+      const r1 = thumbs[1].getBoundingClientRect();
+      const diff = Math.abs(r1.top - r0.top);
+      if (diff >= 35 && diff <= 280) {
+        return diff;
+      }
+    }
+    if (thumbs.length === 1) {
+      const h = thumbs[0].getBoundingClientRect().height;
+      if (h >= 35 && h <= 280) return h + 10;
+    }
+
+    // 2. Measure from slide number badges
     const items = getSlideNumberElements();
     if (items.length >= 2) {
       const diff = Math.abs(items[1].top - items[0].top);
-      if (diff >= 40 && diff <= 160) {
+      if (diff >= 35 && diff <= 250) {
         return diff;
       }
     }
@@ -388,8 +437,14 @@
     const initialItems = getSlideNumberElements();
     let maxFound = initialItems.length > 0 ? Math.max(...initialItems.map(x => x.num)) : 1;
 
-    // 2. Scroll filmstrip to bottom to discover true total
-    if (filmstrip) {
+    // Check count of thumbnail elements in DOM
+    const allThumbs = document.querySelectorAll('.punch-filmstrip-thumbnail, [role="option"]');
+    if (allThumbs.length > maxFound && allThumbs.length < 3000) {
+      maxFound = Math.max(maxFound, allThumbs.length);
+    }
+
+    // 2. Scroll filmstrip to bottom to discover true total if virtualized
+    if (filmstrip && filmstrip.scrollHeight > filmstrip.clientHeight + 20) {
       const originalScrollTop = filmstrip.scrollTop;
       filmstrip.scrollTop = filmstrip.scrollHeight;
       await sleep(300);
@@ -420,78 +475,163 @@
     return maxFound;
   }
 
-  function detectCurrentSlideNumber() {
-    const filmstrip = findFilmstripScrollContainer() || document;
-
-    const selected = filmstrip.querySelector('[aria-selected="true"], .punch-filmstrip-thumbnail-selected, .filmstrip-thumbnail-selected');
-    if (selected) {
-      const aria = selected.getAttribute('aria-label');
-      if (aria) {
-        const m = aria.match(/(?:Slide|Trang|Page)\s*(\d+)/i);
-        if (m) return parseInt(m[1], 10);
-      }
-      const txt = selected.textContent.trim();
-      const m2 = txt.match(/\b(\d{1,4})\b/);
-      if (m2) return parseInt(m2[1], 10);
-    }
-
-    const items = getSlideNumberElements();
-    if (items.length > 0) {
-      const midY = window.innerHeight / 2;
-      let closest = items[0];
-      let minDiff = Math.abs(items[0].top - midY);
-      for (const it of items) {
-        const diff = Math.abs(it.top - midY);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closest = it;
-        }
-      }
-      return closest.num;
-    }
-
-    return 1;
-  }
-
-  function findSlideItemInFilmstrip(targetPageNum) {
-    const filmstrip = findFilmstripScrollContainer() || document;
-
-    const exactAria = filmstrip.querySelector(
-      `[aria-label="Slide ${targetPageNum}" i], [aria-label="Trang ${targetPageNum}" i], [aria-label="Page ${targetPageNum}" i]`
+  function getSelectedThumbnail() {
+    const candidates = document.querySelectorAll(
+      '.punch-filmstrip-thumbnail-selected, .filmstrip-thumbnail-selected, [role="option"][aria-selected="true"], .punch-filmstrip-thumbnail[aria-selected="true"]'
     );
-    if (exactAria) return exactAria;
-
-    const ariaMatcher = new RegExp(`^\\s*(?:Slide|Trang|Page)?\\s*${targetPageNum}(?!\\d)\\b`, 'i');
-    const ariaCandidates = filmstrip.querySelectorAll('[aria-label]');
-    for (const el of ariaCandidates) {
-      const label = el.getAttribute('aria-label') || '';
-      if (ariaMatcher.test(label)) return el;
+    for (const el of candidates) {
+      const rect = el.getBoundingClientRect();
+      if (rect.left < 350 && rect.width > 15 && rect.height > 15) {
+        return el;
+      }
     }
-
-    const targetStr = String(targetPageNum);
-    const allNodes = filmstrip.querySelectorAll('*');
-    for (const node of allNodes) {
-      if (node.children.length === 0 && node.textContent && node.textContent.trim() === targetStr) {
-        const rect = node.getBoundingClientRect();
-        if (rect.width > 0 && rect.width < 70 && rect.left >= 0 && rect.left < 180) {
-          const card = node.closest('[role="tab"], [role="option"], .punch-filmstrip-thumbnail, .filmstrip-thumbnail') || node.parentElement;
-          return card || node;
-        }
+    const allSelected = document.querySelectorAll('[aria-selected="true"]');
+    for (const el of allSelected) {
+      const rect = el.getBoundingClientRect();
+      if (rect.left < 350 && rect.width > 15 && rect.height > 15) {
+        return el;
       }
     }
     return null;
   }
 
-  function advanceNextSlideViaKeyboard() {
+  function detectCurrentSlideNumber() {
+    // 1. Preview / viewer mode navbar check (e.g. "3 / 45")
+    const pageNav = document.querySelector('.punch-viewer-navbar-page');
+    if (pageNav && pageNav.textContent) {
+      const m = pageNav.textContent.match(/(\d+)\s*\/\s*(\d+)/);
+      if (m && m[1]) return parseInt(m[1], 10);
+    }
+
+    // 2. Selected thumbnail in filmstrip
+    const selected = getSelectedThumbnail();
+    if (selected) {
+      const aria = selected.getAttribute('aria-label') || '';
+      // Support English: "Slide 2", "Slide 2: ...", "Page 2"
+      // Support Vietnamese: "Trang trình bày 2", "Trang 2"
+      // Support Spanish/French: "Diapositiva 2", "Diapositive 2"
+      const m = aria.match(/(?:slide|trang(?:\s*trình\s*bày)?|page|diapositiv[ae]|слайд)?\s*(\d+)\b/i);
+      if (m && m[1]) return parseInt(m[1], 10);
+
+      // Check badge vertically aligned with this thumbnail
+      const selRect = selected.getBoundingClientRect();
+      const items = getSlideNumberElements();
+      const aligned = items.find((it) => it.top >= selRect.top - 25 && it.top <= selRect.bottom + 25);
+      if (aligned && aligned.num > 0) return aligned.num;
+
+      const txt = selected.textContent.trim();
+      const m2 = txt.match(/\b(\d{1,4})\b/);
+      if (m2 && m2[1]) return parseInt(m2[1], 10);
+
+      // Check index in thumbnail list if all are present
+      const allThumbs = Array.from(document.querySelectorAll('[role="option"], .punch-filmstrip-thumbnail'));
+      if (cachedTotalSlides > 0 && allThumbs.length === cachedTotalSlides) {
+        const idx = allThumbs.indexOf(selected);
+        if (idx >= 0) return idx + 1;
+      }
+    }
+
+    return 0; // Return 0 when unknown, NEVER guess based on viewport center!
+  }
+
+  function findSlideItemInFilmstrip(targetPageNum) {
+    const filmstrip = findFilmstripScrollContainer() || document;
+    const pStr = String(targetPageNum);
+
+    // 1. Find by slide number badge element directly
+    const allBadges = getSlideNumberElements();
+    const targetBadge = allBadges.find((b) => b.num === targetPageNum);
+    if (targetBadge && targetBadge.el) {
+      const card = targetBadge.el.parentElement?.querySelector('.punch-filmstrip-thumbnail, [role="option"]') ||
+                   targetBadge.el.closest('[role="option"], [role="tab"], .punch-filmstrip-thumbnail, .filmstrip-thumbnail') ||
+                   targetBadge.el.parentElement;
+      if (card) return card;
+    }
+
+    // 2. Search thumbnails by aria-label with robust multi-language regex
+    const slideAriaRegex = new RegExp(
+      `(?:^|\\b)(?:slide|trang(?:\\s*trình\\s*bày)?|page|diapositiv[ae]|слайд)?\\s*${pStr}(?:\\b|[:\\.\\s\\/\\-])`,
+      'i'
+    );
+
+    const allThumbs = Array.from(filmstrip.querySelectorAll('[role="option"], .punch-filmstrip-thumbnail, .filmstrip-thumbnail'));
+    for (const thumb of allThumbs) {
+      const label = thumb.getAttribute('aria-label') || '';
+      if (slideAriaRegex.test(label)) return thumb;
+    }
+
+    // 3. Search any element inside filmstrip with matching aria-label
+    const ariaCandidates = filmstrip.querySelectorAll('[aria-label]');
+    for (const el of ariaCandidates) {
+      if (el.closest && el.closest('#autocap-container')) continue;
+      const label = el.getAttribute('aria-label') || '';
+      if (slideAriaRegex.test(label)) {
+        const card = el.closest('[role="option"], [role="tab"], .punch-filmstrip-thumbnail, .filmstrip-thumbnail') || el;
+        return card;
+      }
+    }
+
+    // 4. Search by leaf text content equal to pStr
+    const allNodes = filmstrip.querySelectorAll('*');
+    for (const node of allNodes) {
+      if (node.closest && node.closest('#autocap-container')) continue;
+      if (node.children.length === 0 && node.textContent && node.textContent.trim() === pStr) {
+        const rect = node.getBoundingClientRect();
+        if (rect.width > 0 && rect.width < 90 && rect.left >= 0 && rect.left < 260) {
+          const card = node.closest('[role="tab"], [role="option"], .punch-filmstrip-thumbnail, .filmstrip-thumbnail') || node.parentElement;
+          return card || node;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function advanceNextSlideViaKeyboard(direction = 'next') {
+    const isNext = direction === 'next';
+    const key = isNext ? 'ArrowDown' : 'ArrowUp';
+    const code = isNext ? 'ArrowDown' : 'ArrowUp';
+    const keyCode = isNext ? 40 : 38;
+
+    // 1. Preview mode
+    const isPreview = document.querySelector('.punch-viewer-container, .punch-viewer-page-viewport, .punch-viewer-navbar');
+    if (isPreview) {
+      const nextBtn = document.querySelector(
+        isNext
+          ? '.punch-viewer-navbar-next, [aria-label*="next" i], [aria-label*="tiếp" i], [data-action="next"]'
+          : '.punch-viewer-navbar-prev, [aria-label*="prev" i], [aria-label*="trước" i], [data-action="previous"]'
+      );
+      if (nextBtn) {
+        safeClick(nextBtn);
+        return;
+      }
+    }
+
+    // 2. Editor mode: target selected thumbnail or filmstrip
+    const selectedThumb = getSelectedThumbnail();
+    if (selectedThumb) {
+      try { selectedThumb.focus(); } catch (e) {}
+      try {
+        selectedThumb.dispatchEvent(new KeyboardEvent('keydown', { key, code, keyCode, which: keyCode, bubbles: true, cancelable: true, view: window }));
+        selectedThumb.dispatchEvent(new KeyboardEvent('keyup', { key, code, keyCode, which: keyCode, bubbles: true, cancelable: true, view: window }));
+        return;
+      } catch (e) {}
+    }
+
+    // Fallback target: filmstrip or workspace
     const target =
-      findFilmstripScrollContainer() ||
+      document.querySelector('[role="listbox"], .punch-filmstrip-scroll-container, .filmstrip-scroller') ||
       document.querySelector('#workspace-container, #workspace') ||
       document.activeElement ||
       document.body;
 
-    if (!target) return;
-    target.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', code: 'PageDown', keyCode: 34, which: 34, bubbles: true, cancelable: true, view: window }));
-    target.dispatchEvent(new KeyboardEvent('keyup', { key: 'PageDown', code: 'PageDown', keyCode: 34, which: 34, bubbles: true, cancelable: true, view: window }));
+    if (target) {
+      try {
+        if (typeof target.focus === 'function') target.focus();
+        target.dispatchEvent(new KeyboardEvent('keydown', { key, code, keyCode, which: keyCode, bubbles: true, cancelable: true, view: window }));
+        target.dispatchEvent(new KeyboardEvent('keyup', { key, code, keyCode, which: keyCode, bubbles: true, cancelable: true, view: window }));
+      } catch (e) {}
+    }
   }
 
   // Crop screenshot image to capture region (fast, DPI & zoom accurate)
@@ -664,32 +804,116 @@
     return { zipBlob, totalPages: rangeCount, mode: 'vector' };
   }
 
-  async function navigateToSlide(p, filmstrip, itemHeight) {
+  // Fast 32x32 downscaled grayscale fingerprint for pixel duplicate detection
+  async function getImageFingerprint(blob) {
+    if (!blob) return null;
+    try {
+      let bmp = null;
+      if (typeof createImageBitmap === 'function') {
+        try {
+          bmp = await createImageBitmap(blob, { resizeWidth: 32, resizeHeight: 32, resizeQuality: 'low' });
+        } catch (e) {
+          bmp = null;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 32;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return null;
+
+      if (bmp) {
+        ctx.drawImage(bmp, 0, 0, 32, 32);
+        try { bmp.close(); } catch (e) {}
+      } else {
+        await new Promise((resolve, reject) => {
+          const img = new Image();
+          const url = URL.createObjectURL(blob);
+          img.onload = () => {
+            URL.revokeObjectURL(url);
+            ctx.drawImage(img, 0, 0, 32, 32);
+            resolve();
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Load image error'));
+          };
+          img.src = url;
+        });
+      }
+
+      const imgData = ctx.getImageData(0, 0, 32, 32).data;
+      const gray = new Uint8Array(1024);
+      for (let i = 0; i < 1024; i++) {
+        const off = i * 4;
+        gray[i] = (imgData[off] * 299 + imgData[off + 1] * 587 + imgData[off + 2] * 114) / 1000;
+      }
+      return gray;
+    } catch (e) {
+      console.warn('Fingerprint error:', e);
+      return null;
+    }
+  }
+
+  function compareFingerprints(fp1, fp2) {
+    if (!fp1 || !fp2 || fp1.length !== fp2.length) return 1.0;
+    let diff = 0;
+    for (let i = 0; i < fp1.length; i++) {
+      diff += Math.abs(fp1[i] - fp2[i]);
+    }
+    return diff / (fp1.length * 255);
+  }
+
+  async function navigateToSlide(p, filmstrip, itemHeight, isFirstPage = false) {
+    if (isFirstPage && detectCurrentSlideNumber() === p) {
+      return true;
+    }
+
+    // 1. Preview mode
+    const isPreview = document.querySelector('.punch-viewer-container, .punch-viewer-page-viewport, .punch-viewer-navbar');
+    if (isPreview) {
+      advanceNextSlideViaKeyboard('next');
+      await sleep(100);
+      return true;
+    }
+
+    // 2. Editor mode: Find slide item in filmstrip
     let slideItem = findSlideItemInFilmstrip(p);
 
     if (!slideItem && filmstrip) {
-      const visibleNums = getSlideNumberElements();
-      if (visibleNums.length >= 2) {
-        const avgVisible = (visibleNums[0].num + visibleNums[visibleNums.length - 1].num) / 2;
-        if (Math.abs(p - avgVisible) <= 25) {
-          filmstrip.scrollTop = Math.max(0, filmstrip.scrollTop + (p - avgVisible) * itemHeight);
-        } else {
-          filmstrip.scrollTop = Math.max(0, (p - 1) * itemHeight - 140);
+      const visibleBadges = getSlideNumberElements();
+      if (visibleBadges.length > 0) {
+        const maxVis = Math.max(...visibleBadges.map((x) => x.num));
+        const minVis = Math.min(...visibleBadges.map((x) => x.num));
+
+        if (p > maxVis) {
+          const delta = p - maxVis;
+          const scrollPx = Math.max(120, delta * itemHeight + 60);
+          filmstrip.scrollTop += scrollPx;
+          try {
+            filmstrip.dispatchEvent(new WheelEvent('wheel', { deltaY: scrollPx, bubbles: true }));
+            filmstrip.dispatchEvent(new Event('scroll', { bubbles: true }));
+          } catch (e) {}
+        } else if (p < minVis) {
+          const delta = minVis - p;
+          const scrollPx = Math.max(120, delta * itemHeight + 60);
+          filmstrip.scrollTop = Math.max(0, filmstrip.scrollTop - scrollPx);
+          try {
+            filmstrip.dispatchEvent(new WheelEvent('wheel', { deltaY: -scrollPx, bubbles: true }));
+            filmstrip.dispatchEvent(new Event('scroll', { bubbles: true }));
+          } catch (e) {}
         }
       } else {
-        filmstrip.scrollTop = Math.max(0, (p - 1) * itemHeight - 140);
+        const targetScroll = Math.max(0, (p - 1) * itemHeight - 80);
+        filmstrip.scrollTop = targetScroll;
+        try { filmstrip.dispatchEvent(new Event('scroll', { bubbles: true })); } catch (e) {}
       }
 
-      for (let attempt = 0; attempt < 6; attempt++) {
-        await sleep(25);
+      for (let attempt = 0; attempt < 12; attempt++) {
+        await sleep(35);
         slideItem = findSlideItemInFilmstrip(p);
         if (slideItem) break;
-      }
-
-      if (!slideItem) {
-        filmstrip.scrollTop = Math.max(0, (p - 1) * itemHeight - 140);
-        await sleep(60);
-        slideItem = findSlideItemInFilmstrip(p);
       }
     }
 
@@ -697,15 +921,19 @@
       if (filmstrip) {
         const itemRect = slideItem.getBoundingClientRect();
         const fsRect = filmstrip.getBoundingClientRect();
-        if (itemRect.top < fsRect.top || itemRect.bottom > fsRect.bottom) {
-          slideItem.scrollIntoView({ block: 'nearest' });
+        if (itemRect.bottom > fsRect.bottom - 5) {
+          filmstrip.scrollTop += (itemRect.bottom - fsRect.bottom + 30);
+        } else if (itemRect.top < fsRect.top + 5) {
+          filmstrip.scrollTop -= (fsRect.top - itemRect.top + 30);
         }
       }
       safeClick(slideItem);
       return true;
+    } else {
+      // ONLY fallback to keyboard ArrowDown if thumbnail was not found in DOM
+      advanceNextSlideViaKeyboard('next');
+      return true;
     }
-
-    return false;
   }
 
   async function captureSingleFrame(options, stateObj) {
@@ -740,7 +968,8 @@
         });
         if (frameRes && frameRes.success && frameRes.dataUrl) {
           const resp = await fetch(frameRes.dataUrl);
-          return await resp.blob();
+          const rawBlob = await resp.blob();
+          return { blob: rawBlob, dataUrl: frameRes.dataUrl, size: rawBlob.size };
         }
         stateObj.useStream = false;
       }
@@ -760,7 +989,7 @@
       }
 
       const cropped = await cropScreenshot(captureResponse.dataUrl, rect, options.format, captureArea);
-      return cropped.blob;
+      return { blob: cropped.blob, dataUrl: captureResponse.dataUrl, size: cropped.blob.size };
     } finally {
       if (autoHideWidget && widgetElements && widgetElements.root) {
         widgetElements.root.style.opacity = '1';
@@ -811,6 +1040,9 @@
     }
 
     let capturedCount = 0;
+    let lastDataUrl = null;
+    let lastBlobSize = 0;
+    let lastFingerprint = null;
 
     try {
       for (let p = startPage; p <= endPage; p++) {
@@ -828,12 +1060,10 @@
           message: `Đang chuyển sang slide ${p}/${totalSlides}...`
         });
 
-        const clicked = await navigateToSlide(p, filmstrip, itemHeight);
-        if (!clicked && p > startPage) {
-          advanceNextSlideViaKeyboard();
-        }
+        await navigateToSlide(p, filmstrip, itemHeight, p === startPage);
 
-        await sleepPausable(delay);
+        // Requested settling delay (ensure at least 150ms so Google Slides finishes rendering)
+        await sleepPausable(Math.max(150, delay));
 
         if (shouldCancel) throw new Error('Người dùng đã hủy quá trình chụp.');
         if (isPaused) await waitWhilePaused();
@@ -845,9 +1075,66 @@
           message: `Đang chụp slide ${p}/${totalSlides}...`
         });
 
-        const slideBlob = await captureSingleFrame(options, streamState);
+        // Anti-Duplicate Capture Loop
+        let frameObj = null;
+        let duplicateAttempts = 0;
+        const maxDuplicateRetries = 5;
+
+        while (true) {
+          frameObj = await captureSingleFrame(options, streamState);
+          const currentFingerprint = await getImageFingerprint(frameObj.blob);
+
+          if (p === startPage || !lastDataUrl) {
+            lastFingerprint = currentFingerprint;
+            break;
+          }
+
+          // Check if identical to previous slide:
+          const isSameDataUrl = Boolean(frameObj.dataUrl && frameObj.dataUrl === lastDataUrl);
+          const isSameSize = Boolean(frameObj.size && frameObj.size === lastBlobSize);
+          let isDuplicate = isSameDataUrl;
+
+          if (!isDuplicate && isSameSize) {
+            if (currentFingerprint && lastFingerprint) {
+              const diffRatio = compareFingerprints(currentFingerprint, lastFingerprint);
+              if (diffRatio < 0.003) isDuplicate = true;
+            } else {
+              isDuplicate = true;
+            }
+          }
+
+          if (!isDuplicate) {
+            lastFingerprint = currentFingerprint;
+            break;
+          }
+
+          // DUPLICATE DETECTED!
+          duplicateAttempts++;
+          if (duplicateAttempts > maxDuplicateRetries) {
+            console.warn(`[AutoCap] Slide ${p} tương tự slide trước sau ${maxDuplicateRetries} lần thử.`);
+            lastFingerprint = currentFingerprint;
+            break;
+          }
+
+          console.warn(`[AutoCap] Phát hiện lặp ảnh slide ${p}. Đang chuyển tiếp và chụp lại lần ${duplicateAttempts}/${maxDuplicateRetries}...`);
+          onProgress({
+            stage: 'NAVIGATING',
+            current: p,
+            total: totalSlides,
+            message: `Phát hiện ảnh trùng lặp: Đang chuyển và chụp lại slide ${p}/${totalSlides} (lần ${duplicateAttempts})...`
+          });
+
+          // Re-navigate to slide p
+          await navigateToSlide(p, filmstrip, itemHeight, false);
+          // Wait additional settling time
+          await sleepPausable(200 + duplicateAttempts * 100);
+        }
+
+        lastDataUrl = frameObj.dataUrl;
+        lastBlobSize = frameObj.size;
+
         const filename = formatFilename(p, totalSlides, options.namingPattern, options.format);
-        zip.file(filename, slideBlob);
+        zip.file(filename, frameObj.blob);
         capturedCount++;
         activeZipCount = capturedCount;
         activeZipLastPage = p;
@@ -858,7 +1145,7 @@
           current: p,
           total: totalSlides,
           percent: Math.min(95, Math.round((currentProgressIndex / rangeCount) * 90) + 5),
-          previewBlob: slideBlob,
+          previewBlob: frameObj.blob,
           message: isPaused
             ? `⏸ Đang tạm dừng — đã chụp ${capturedCount} ảnh (Trang ${startPage}–${p})`
             : `Đã chụp xong slide ${p}/${totalSlides} (${capturedCount}/${rangeCount})`
@@ -987,6 +1274,14 @@
 
       if (options.mode === 'vector') {
         result = await runVectorPdfEngine(presentationId, title, options, updateProgress);
+        if (!result || !result.zipBlob) {
+          updateProgress({
+            stage: 'PREPARING',
+            percent: 8,
+            message: 'Không thể xuất PDF trực tiếp từ máy chủ Google, chuyển sang chụp màn hình tab...'
+          });
+          result = await runScreenCaptureEngine(presentationId, title, options, updateProgress);
+        }
       } else {
         result = await runScreenCaptureEngine(presentationId, title, options, updateProgress);
       }
