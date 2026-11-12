@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoCap Google Slides</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <div class="header-logo">
+        <img src="../icons/icon48.png" alt="AutoCap Icon">
+        <div>
+          <h2>AutoCap Slides</h2>
+          <span class="version-tag">v2.0</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="popup-main">
+      <!-- Active Slides View -->
+      <div id="slides-view" class="view-section">
+        <div class="slide-card">
+          <div class="card-row">
+            <span class="label">Tiêu đề:</span>
+            <span class="value title-val" id="slide-title">Đang quét...</span>
+          </div>
+          <div class="card-row">
+            <span class="label">Số trang:</span>
+            <span class="value count-val" id="slide-count">Đang kiểm tra...</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="pop-mode">Cơ chế chụp:</label>
+          <select id="pop-mode" class="form-select">
+            <option value="screenshot" selected>📸 Chụp Trực Tiếp Tab (Tự động, siêu nét)</option>
+            <option value="stream">⚡ Siêu Tốc Stream (0.1s–0.4s/trang)</option>
+            <option value="vector">📄 Xuất Vector PDF (Chỉ Slide, không ghi chú)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="pop-area">Vùng chụp màn hình:</label>
+          <select id="pop-area" class="form-select">
+            <option value="slide_notes" selected>📝 Slide + Phần ghi chú phía dưới</option>
+            <option value="full_tab">🖥 Toàn màn hình trình duyệt đang xem</option>
+            <option value="slide_only">🖼 Chỉ khung Slide (Bỏ ghi chú)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="pop-delay-sec">Tốc độ mỗi slide (giây):</label>
+          <input type="number" id="pop-delay-sec" class="form-input" value="0.35" min="0.05" max="30" step="0.05">
+        </div>
+
+        <div class="form-group">
+          <label for="pop-naming">Đánh số tên ảnh:</label>
+          <select id="pop-naming" class="form-select">
+            <option value="padded" selected>001.png, 002.png... (Đúng thứ tự)</option>
+            <option value="raw">1.png, 2.png, 3.png...</option>
+            <option value="slide_padded">Slide_001.png, Slide_002.png...</option>
+            <option value="trang_padded">Trang_001.png, Trang_002.png...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="pop-format">Định dạng ảnh:</label>
+          <select id="pop-format" class="form-select">
+            <option value="png" selected>PNG (Sắc nét nhất - Không nén)</option>
+            <option value="jpeg">JPEG (Dung lượng nhẹ & nhanh hơn)</option>
+          </select>
+        </div>
+
+        <button id="start-btn" class="btn-primary">
+          📸 Chụp Toàn Bộ Slide & Tải ZIP
+        </button>
+
+        <div id="popup-status" class="status-msg"></div>
+      </div>
+
+      <!-- Inactive / Not on Google Slides View -->
+      <div id="not-slides-view" class="view-section" style="display: none;">
+        <div class="warning-box">
+          <p class="warning-title">Không ở trang Google Slides</p>
+          <p class="warning-text">Tiện ích này hoạt động trên các trang trình bày Google Slides (docs.google.com/presentation).</p>
+          <button id="open-sample-btn" class="btn-secondary">Mở Google Slides</button>
+        </div>
+      </div>
+    </main>
+
+    <footer class="popup-footer">
+      <span>Tự động chụp & lưu ZIP theo tên slide</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

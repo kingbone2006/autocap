@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "AutoCap Google Slides - Chụp & Tải Slide ZIP",
+  "version": "2.0.0",
+  "description": "Tiện ích tự động chụp màn hình Google Slides (bao gồm Slide + phần Ghi chú phía dưới) với tốc độ tùy chỉnh siêu nhanh và đóng gói file ZIP.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "AutoCap Google Slides"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "downloads",
+    "scripting",
+    "desktopCapture",
+    "tabCapture",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://docs.google.com/presentation/*"
+      ],
+      "js": [
+        "lib/jszip.min.js",
+        "lib/pdf.min.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/pdf.worker.min.js",
+        "icons/*"
+      ],
+      "matches": [
+        "https://docs.google.com/*"
+      ]
+    }
+  ]
+}
